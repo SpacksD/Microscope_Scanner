@@ -33,6 +33,7 @@ export const ContinuousStitching: React.FC<ContinuousStitchingProps> = ({
     coverageStats,
     startStitching,
     stopStitching,
+    exportFinalPanorama,
     reset
   } = useContinuousStitching(videoRef);
 
@@ -75,6 +76,43 @@ export const ContinuousStitching: React.FC<ContinuousStitchingProps> = ({
 
   const handleReset = () => {
     reset();
+  };
+
+  const handleExportPanorama = () => {
+    const finalPanorama = exportFinalPanorama();
+    if (finalPanorama) {
+      // Create download link
+      const link = document.createElement('a');
+      link.href = finalPanorama;
+      link.download = `microscope-panorama-${Date.now()}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  };
+
+  const handleViewPanorama = () => {
+    if (panoramaDataUrl) {
+      // Open in new window
+      const win = window.open();
+      if (win) {
+        win.document.write(`
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <title>Microscope Panorama</title>
+              <style>
+                body { margin: 0; padding: 20px; background: #000; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+                img { max-width: 100%; height: auto; border: 2px solid #fff; }
+              </style>
+            </head>
+            <body>
+              <img src="${panoramaDataUrl}" alt="Microscope Panorama" />
+            </body>
+          </html>
+        `);
+      }
+    }
   };
 
   const getConfidenceColor = (confidence: number): string => {
@@ -193,6 +231,19 @@ export const ContinuousStitching: React.FC<ContinuousStitchingProps> = ({
           </>
         )}
       </div>
+
+      {/* Export buttons - shown when panorama exists */}
+      {panoramaDataUrl && stats.framesAccepted > 0 && (
+        <div className="export-buttons">
+          <button onClick={handleViewPanorama} className="btn-view">
+            👁️ View Panorama
+          </button>
+          <button onClick={handleExportPanorama} className="btn-export">
+            💾 Download PNG
+          </button>
+        </div>
+      )}
+
 
       {cameraError && (
         <div className="error-message">{cameraError}</div>
