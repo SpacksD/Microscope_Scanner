@@ -2,12 +2,21 @@
  * Smart image stitching using OpenCV.js with feature detection
  */
 
+import { calculateFramePosition } from './regionTracking';
+
 export interface StitchResult {
   success: boolean;
   panorama?: string;
   confidence: number;
   matchedFeatures?: number;
   error?: string;
+  homography?: any; // OpenCV Mat object for frame position calculation
+  framePosition?: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
 }
 
 export interface PanoramaState {
@@ -346,6 +355,18 @@ export const stitchFrame = async (
     panoramaState.bounds = newBounds;
     panoramaState.frameCount++;
 
+    // Calculate frame position in panorama space
+    const framePosition = calculateFramePosition(
+      cv,
+      homography,
+      newFrame.width,
+      newFrame.height,
+      panoramaState.bounds
+    );
+
+    // Clone homography for external use (before cleanup)
+    const homographyClone = homography.clone();
+
     // Cleanup
     homography.delete();
     matches.delete();
@@ -365,7 +386,9 @@ export const stitchFrame = async (
       success: true,
       panorama: panoramaCanvas.toDataURL('image/png'),
       confidence,
-      matchedFeatures: goodMatches.length
+      matchedFeatures: goodMatches.length,
+      homography: homographyClone,
+      framePosition: framePosition || undefined
     };
   } catch (error) {
     console.error('Stitching error:', error);

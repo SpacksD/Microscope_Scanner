@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useCamera } from '../hooks/useCamera';
 import { useContinuousStitching } from '../hooks/useContinuousStitching';
+import { Minimap } from './Minimap';
 import type { CameraSettings } from '../types';
 import './ContinuousStitching.css';
 
@@ -28,6 +29,8 @@ export const ContinuousStitching: React.FC<ContinuousStitchingProps> = ({
     panoramaDataUrl,
     stats,
     cvLoaded,
+    regionMap,
+    coverageStats,
     startStitching,
     stopStitching,
     reset
@@ -176,41 +179,56 @@ export const ContinuousStitching: React.FC<ContinuousStitchingProps> = ({
       )}
 
       {isStitching && (
-        <div className="stitching-stats">
-          <div className="stat-item">
-            <span className="stat-label">Frames Processed:</span>
-            <span className="stat-value">{stats.framesProcessed}</span>
-          </div>
-          <div className="stat-item">
-            <span className="stat-label">Frames Accepted:</span>
-            <span className="stat-value success">
-              {stats.framesAccepted} ({stats.framesProcessed > 0
-                ? Math.round((stats.framesAccepted / stats.framesProcessed) * 100)
-                : 0}%)
-            </span>
-          </div>
-          <div className="stat-item">
-            <span className="stat-label">Last Confidence:</span>
-            <span
-              className="stat-value confidence"
-              style={{ color: getConfidenceColor(stats.lastConfidence) }}
-            >
-              {stats.lastConfidence.toFixed(1)}% ({getConfidenceLabel(stats.lastConfidence)})
-            </span>
-          </div>
-          <div className="stat-item">
-            <span className="stat-label">Features Matched:</span>
-            <span className="stat-value">{stats.lastMatchedFeatures}</span>
-          </div>
-          {stats.isProcessing && (
-            <div className="processing-indicator">
-              <div className="spinner"></div>
-              <span>Processing frame...</span>
+        <div className="stitching-content">
+          <div className="stitching-stats">
+            <div className="stat-item">
+              <span className="stat-label">Frames Processed:</span>
+              <span className="stat-value">{stats.framesProcessed}</span>
             </div>
-          )}
-          {stats.lastError && (
-            <div className="error-hint">Last error: {stats.lastError}</div>
-          )}
+            <div className="stat-item">
+              <span className="stat-label">Frames Accepted:</span>
+              <span className="stat-value success">
+                {stats.framesAccepted} ({stats.framesProcessed > 0
+                  ? Math.round((stats.framesAccepted / stats.framesProcessed) * 100)
+                  : 0}%)
+              </span>
+            </div>
+            <div className="stat-item">
+              <span className="stat-label">Last Confidence:</span>
+              <span
+                className="stat-value confidence"
+                style={{ color: getConfidenceColor(stats.lastConfidence) }}
+              >
+                {stats.lastConfidence.toFixed(1)}% ({getConfidenceLabel(stats.lastConfidence)})
+              </span>
+            </div>
+            <div className="stat-item">
+              <span className="stat-label">Features Matched:</span>
+              <span className="stat-value">{stats.lastMatchedFeatures}</span>
+            </div>
+            {stats.overlapDetected && (
+              <div className="overlap-indicator">
+                <span className="overlap-badge">🔄 Overlap Detected</span>
+                <span className="overlap-hint">Revisiting previously scanned area</span>
+              </div>
+            )}
+            {stats.isProcessing && (
+              <div className="processing-indicator">
+                <div className="spinner"></div>
+                <span>Processing frame...</span>
+              </div>
+            )}
+            {stats.lastError && (
+              <div className="error-hint">Last error: {stats.lastError}</div>
+            )}
+          </div>
+
+          <Minimap
+            regionMap={regionMap}
+            panoramaDataUrl={panoramaDataUrl}
+            currentFramePosition={stats.lastFramePosition}
+            coverageStats={coverageStats}
+          />
         </div>
       )}
 

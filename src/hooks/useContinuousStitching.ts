@@ -6,6 +6,13 @@ import {
   exportPanorama,
   type PanoramaState
 } from '../utils/smartStitching';
+import {
+  initRegionMap,
+  updateRegions,
+  getCoverageStats,
+  type RegionMap,
+  type CoverageStats
+} from '../utils/regionTracking';
 
 export interface StitchingStats {
   framesProcessed: number;
@@ -14,6 +21,13 @@ export interface StitchingStats {
   lastMatchedFeatures: number;
   isProcessing: boolean;
   lastError?: string;
+  overlapDetected: boolean;
+  lastFramePosition?: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
 }
 
 export const useContinuousStitching = (videoRef: React.RefObject<HTMLVideoElement | null>) => {
@@ -25,7 +39,18 @@ export const useContinuousStitching = (videoRef: React.RefObject<HTMLVideoElemen
     framesAccepted: 0,
     lastConfidence: 0,
     lastMatchedFeatures: 0,
-    isProcessing: false
+    isProcessing: false,
+    overlapDetected: false
+  });
+  const [regionMap, setRegionMap] = useState<RegionMap>(initRegionMap(200));
+  const [coverageStats, setCoverageStats] = useState<CoverageStats>({
+    totalRegions: 0,
+    poorRegions: 0,
+    fairRegions: 0,
+    goodRegions: 0,
+    excellentRegions: 0,
+    overallQuality: 0,
+    avgCapturesPerRegion: 0
   });
 
   const panoramaStateRef = useRef<PanoramaState | null>(null);
@@ -66,7 +91,8 @@ export const useContinuousStitching = (videoRef: React.RefObject<HTMLVideoElemen
         framesAccepted: 1,
         lastConfidence: 100,
         lastMatchedFeatures: 0,
-        isProcessing: false
+        isProcessing: false,
+        overlapDetected: false
       });
 
       // Start continuous capture and stitching
@@ -91,6 +117,26 @@ export const useContinuousStitching = (videoRef: React.RefObject<HTMLVideoElemen
             minConfidence
           );
 
+          // Update region map if frame was successfully stitched
+          let overlapDetected = false;
+          if (result.success && result.framePosition) {
+            const { overlapDetected: overlap } = updateRegions(
+              regionMap,
+              result.framePosition.x,
+              result.framePosition.y,
+              result.framePosition.width,
+              result.framePosition.height,
+              result.confidence
+            );
+
+            overlapDetected = overlap;
+
+            // Update coverage stats
+            const newCoverageStats = getCoverageStats(regionMap);
+            setCoverageStats(newCoverageStats);
+            setRegionMap({ ...regionMap }); // Trigger re-render
+          }
+
           setStats(prev => ({
             framesProcessed: prev.framesProcessed + 1,
             framesAccepted: result.success
@@ -99,11 +145,18 @@ export const useContinuousStitching = (videoRef: React.RefObject<HTMLVideoElemen
             lastConfidence: result.confidence,
             lastMatchedFeatures: result.matchedFeatures || 0,
             isProcessing: false,
-            lastError: result.error
+            lastError: result.error,
+            overlapDetected,
+            lastFramePosition: result.framePosition
           }));
 
           if (result.success && result.panorama) {
             setPanoramaDataUrl(result.panorama);
+          }
+
+          // Cleanup homography if present
+          if (result.homography) {
+            result.homography.delete();
           }
         } catch (error) {
           console.error('Stitching error:', error);
@@ -152,7 +205,18 @@ export const useContinuousStitching = (videoRef: React.RefObject<HTMLVideoElemen
       framesAccepted: 0,
       lastConfidence: 0,
       lastMatchedFeatures: 0,
-      isProcessing: false
+      isProcessing: false,
+      overlapDetected: false
+    });
+    setRegionMap(initRegionMap(200));
+    setCoverageStats({
+      totalRegions: 0,
+      poorRegions: 0,
+      fairRegions: 0,
+      goodRegions: 0,
+      excellentRegions: 0,
+      overallQuality: 0,
+      avgCapturesPerRegion: 0
     });
   }, [stopStitching]);
 
@@ -161,6 +225,8 @@ export const useContinuousStitching = (videoRef: React.RefObject<HTMLVideoElemen
     panoramaDataUrl,
     stats,
     cvLoaded,
+    regionMap,
+    coverageStats,
     startStitching,
     stopStitching,
     exportFinalPanorama,
