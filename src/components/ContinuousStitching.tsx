@@ -206,6 +206,12 @@ export const ContinuousStitching: React.FC<ContinuousStitchingProps> = ({
               <span className="stat-label">Features Matched:</span>
               <span className="stat-value">{stats.lastMatchedFeatures}</span>
             </div>
+            <div className="stat-item">
+              <span className="stat-label">Camera Movement:</span>
+              <span className="stat-value" style={{ color: stats.lastMovement < 15 ? '#ef4444' : '#10b981' }}>
+                {stats.lastMovement.toFixed(1)}px
+              </span>
+            </div>
             {stats.overlapDetected && (
               <div className="overlap-indicator">
                 <span className="overlap-badge">🔄 Overlap Detected</span>

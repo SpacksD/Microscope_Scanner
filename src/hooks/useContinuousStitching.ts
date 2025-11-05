@@ -22,6 +22,7 @@ export interface StitchingStats {
   isProcessing: boolean;
   lastError?: string;
   overlapDetected: boolean;
+  lastMovement: number;
   lastFramePosition?: {
     x: number;
     y: number;
@@ -40,7 +41,8 @@ export const useContinuousStitching = (videoRef: React.RefObject<HTMLVideoElemen
     lastConfidence: 0,
     lastMatchedFeatures: 0,
     isProcessing: false,
-    overlapDetected: false
+    overlapDetected: false,
+    lastMovement: 0
   });
   const [regionMap, setRegionMap] = useState<RegionMap>(initRegionMap(200));
   const [coverageStats, setCoverageStats] = useState<CoverageStats>({
@@ -92,7 +94,8 @@ export const useContinuousStitching = (videoRef: React.RefObject<HTMLVideoElemen
         lastConfidence: 100,
         lastMatchedFeatures: 0,
         isProcessing: false,
-        overlapDetected: false
+        overlapDetected: false,
+        lastMovement: 0
       });
 
       // Start continuous capture and stitching
@@ -147,6 +150,7 @@ export const useContinuousStitching = (videoRef: React.RefObject<HTMLVideoElemen
             isProcessing: false,
             lastError: result.error,
             overlapDetected,
+            lastMovement: result.translationDistance || 0,
             lastFramePosition: result.framePosition
           }));
 
@@ -206,7 +210,8 @@ export const useContinuousStitching = (videoRef: React.RefObject<HTMLVideoElemen
       lastConfidence: 0,
       lastMatchedFeatures: 0,
       isProcessing: false,
-      overlapDetected: false
+      overlapDetected: false,
+      lastMovement: 0
     });
     setRegionMap(initRegionMap(200));
     setCoverageStats({

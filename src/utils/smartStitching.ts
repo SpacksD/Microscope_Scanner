@@ -17,6 +17,7 @@ export interface StitchResult {
     width: number;
     height: number;
   };
+  translationDistance?: number; // Movement in pixels
 }
 
 export interface PanoramaState {
@@ -105,6 +106,30 @@ export const matchFeatures = (
 };
 
 /**
+ * Calculate translation distance from homography matrix
+ * Returns the amount of movement in pixels
+ */
+export const calculateTranslationDistance = (homography: any): number => {
+  if (!homography || homography.empty()) return 0;
+
+  try {
+    // Get translation components from homography matrix
+    // H = [h00 h01 tx]
+    //     [h10 h11 ty]
+    //     [h20 h21 1 ]
+    const tx = homography.doubleAt(0, 2); // Translation in X
+    const ty = homography.doubleAt(1, 2); // Translation in Y
+
+    // Calculate Euclidean distance
+    const distance = Math.sqrt(tx * tx + ty * ty);
+    return distance;
+  } catch (error) {
+    console.error('Error calculating translation distance:', error);
+    return 0;
+  }
+};
+
+/**
  * Calculate homography matrix from matched features
  */
 export const calculateHomography = (
@@ -112,9 +137,9 @@ export const calculateHomography = (
   keypoints1: any,
   keypoints2: any,
   goodMatches: any[]
-): { homography: any; confidence: number } => {
+): { homography: any; confidence: number; translationDistance: number } => {
   if (goodMatches.length < 4) {
-    return { homography: null, confidence: 0 };
+    return { homography: null, confidence: 0, translationDistance: 0 };
   }
 
   // Extract matched points with validation
@@ -136,7 +161,7 @@ export const calculateHomography = (
 
   // Check if we still have enough valid matches
   if (validMatches.length < 4) {
-    return { homography: null, confidence: 0 };
+    return { homography: null, confidence: 0, translationDistance: 0 };
   }
 
   const srcMat = cv.matFromArray(validMatches.length, 1, cv.CV_32FC2, srcPoints);
@@ -148,10 +173,13 @@ export const calculateHomography = (
   // Calculate confidence based on number of valid matches
   const confidence = Math.min(100, (validMatches.length / 50) * 100);
 
+  // Calculate translation distance
+  const translationDistance = calculateTranslationDistance(homography);
+
   srcMat.delete();
   dstMat.delete();
 
-  return { homography, confidence };
+  return { homography, confidence, translationDistance };
 };
 
 /**
@@ -269,7 +297,7 @@ export const stitchFrame = async (
     }
 
     // Calculate homography
-    const { homography, confidence } = calculateHomography(
+    const { homography, confidence, translationDistance } = calculateHomography(
       cv,
       features2.keypoints, // new frame keypoints
       features1.keypoints, // panorama keypoints
@@ -295,6 +323,30 @@ export const stitchFrame = async (
         confidence: 0,
         matchedFeatures: goodMatches.length,
         error: 'Invalid keypoints or homography'
+      };
+    }
+
+    // Check for minimum movement (reject if camera hasn't moved significantly)
+    const minMovementPixels = 15; // Minimum 15 pixels of movement
+    if (translationDistance < minMovementPixels) {
+      if (homography) homography.delete();
+      matches.delete();
+      features1.keypoints.delete();
+      features1.descriptors.delete();
+      features1.orb.delete();
+      features2.keypoints.delete();
+      features2.descriptors.delete();
+      features2.orb.delete();
+      panoramaMat.delete();
+      frameMat.delete();
+      gray1.delete();
+      gray2.delete();
+
+      return {
+        success: false,
+        confidence,
+        matchedFeatures: goodMatches.length,
+        error: `Insufficient movement (${translationDistance.toFixed(1)}px < ${minMovementPixels}px)`
       };
     }
 
@@ -388,7 +440,8 @@ export const stitchFrame = async (
       confidence,
       matchedFeatures: goodMatches.length,
       homography: homographyClone,
-      framePosition: framePosition || undefined
+      framePosition: framePosition || undefined,
+      translationDistance
     };
   } catch (error) {
     console.error('Stitching error:', error);
