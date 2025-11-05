@@ -1,0 +1,105 @@
+.camera-capture {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1rem;
+  background: #1a1a1a;
+  border-radius: 8px;
+}
+
+.camera-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.control-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.control-group label {
+  font-weight: 500;
+  min-width: 80px;
+}
+
+.control-group select {
+  flex: 1;
+  padding: 0.5rem;
+  border: 1px solid #444;
+  background: #2a2a2a;
+  color: white;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.control-buttons {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+button {
+  padding: 0.7rem 1.5rem;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-primary {
+  background: #646cff;
+  color: white;
+}
+
+.btn-primary:hover {
+  background: #535bf2;
+}
+
+.btn-capture {
+  background: #10b981;
+  color: white;
+}
+
+.btn-capture:hover {
+  background: #059669;
+}
+
+.btn-capture:disabled {
+  background: #6b7280;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background: #ef4444;
+  color: white;
+}
+
+.btn-secondary:hover {
+  background: #dc2626;
+}
+
+.error-message {
+  padding: 0.75rem;
+  background: #7f1d1d;
+  color: #fca5a5;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.video-container {
+  position: relative;
+  width: 100%;
+  background: #000;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.video-feed {
+  width: 100%;
+  height: auto;
+  display: block;
+}

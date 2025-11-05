@@ -1,0 +1,82 @@
+.image-viewer-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: #1a1a1a;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.viewer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  background: #242424;
+  border-bottom: 1px solid #333;
+}
+
+.viewer-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.viewer-info {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.badge-success {
+  background: #10b981;
+  color: white;
+}
+
+.badge-info {
+  background: #3b82f6;
+  color: white;
+}
+
+.openseadragon-viewer {
+  flex: 1;
+  position: relative;
+  width: 100%;
+  min-height: 400px;
+  background: #000;
+}
+
+.empty-state {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  color: #666;
+}
+
+.empty-state p {
+  margin: 0.5rem 0;
+}
+
+.empty-state-hint {
+  font-size: 0.9rem;
+  color: #555;
+}
+
+/* OpenSeadragon custom styling */
+:global(.openseadragon-container) {
+  background: #000 !important;
+}
+
+:global(.navigator) {
+  border: 2px solid #646cff !important;
+  background: rgba(0, 0, 0, 0.5) !important;
+}
