@@ -13,40 +13,33 @@ export const useOpenCV = () => {
   useEffect(() => {
     // Check if OpenCV is already loaded
     if (window.cv && window.cv.Mat) {
+      console.log('OpenCV.js already loaded!');
       setCvLoaded(true);
       return;
     }
 
-    const loadOpenCV = async () => {
-      try {
-        // Import the OpenCV.js module
-        await import('@techstark/opencv-js');
-
-        // Wait for OpenCV to be ready
-        await new Promise<void>((resolve, reject) => {
-          const checkCV = setInterval(() => {
-            if (window.cv && window.cv.Mat) {
-              clearInterval(checkCV);
-              resolve();
-            }
-          }, 100);
-
-          // Timeout after 10 seconds
-          setTimeout(() => {
-            clearInterval(checkCV);
-            reject(new Error('OpenCV loading timeout'));
-          }, 10000);
-        });
-
+    // Wait for OpenCV to load from CDN
+    const checkOpenCV = setInterval(() => {
+      if (window.cv && window.cv.Mat) {
+        clearInterval(checkOpenCV);
+        console.log('OpenCV.js loaded successfully from CDN!');
         setCvLoaded(true);
-        console.log('OpenCV.js loaded successfully');
-      } catch (err) {
-        setError('Failed to load OpenCV: ' + (err as Error).message);
-        console.error('OpenCV loading error:', err);
       }
-    };
+    }, 100);
 
-    loadOpenCV();
+    // Timeout after 30 seconds
+    const timeout = setTimeout(() => {
+      clearInterval(checkOpenCV);
+      if (!window.cv || !window.cv.Mat) {
+        setError('Failed to load OpenCV: timeout after 30 seconds');
+        console.error('OpenCV loading timeout');
+      }
+    }, 30000);
+
+    return () => {
+      clearInterval(checkOpenCV);
+      clearTimeout(timeout);
+    };
   }, []);
 
   return { cvLoaded, error, cv: window.cv };
