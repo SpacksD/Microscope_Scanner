@@ -212,8 +212,10 @@ export const stitchFrame = async (
     const ctx = panoramaCanvas.getContext('2d');
     if (!ctx) throw new Error('Cannot get canvas context');
 
-    // Use last accepted frame for comparison instead of full panorama
-    // This prevents false movement detection as panorama grows
+    // Strategy: Use two-step approach
+    // 1. Check movement against last frame to avoid false positives
+    // 2. Calculate homography against panorama for correct positioning
+
     const referenceFrame = panoramaState.lastAcceptedFrame;
     if (!referenceFrame) {
       return {
@@ -223,7 +225,7 @@ export const stitchFrame = async (
       };
     }
 
-    // Create cv.Mat from reference frame (last accepted frame)
+    // Step 1: Quick movement check against last frame
     const refCanvas = document.createElement('canvas');
     refCanvas.width = referenceFrame.width;
     refCanvas.height = referenceFrame.height;
@@ -245,28 +247,27 @@ export const stitchFrame = async (
     const frameImageData = frameCtx.getImageData(0, 0, newFrame.width, newFrame.height);
     const frameMat = cv.matFromImageData(frameImageData);
 
-    // Convert to grayscale for feature detection
-    const gray1 = new cv.Mat();
-    const gray2 = new cv.Mat();
-    cv.cvtColor(refMat, gray1, cv.COLOR_RGBA2GRAY);
-    cv.cvtColor(frameMat, gray2, cv.COLOR_RGBA2GRAY);
+    // Convert to grayscale
+    const grayRef = new cv.Mat();
+    const grayFrame = new cv.Mat();
+    cv.cvtColor(refMat, grayRef, cv.COLOR_RGBA2GRAY);
+    cv.cvtColor(frameMat, grayFrame, cv.COLOR_RGBA2GRAY);
 
-    // Detect features with configurable feature count
-    const features1 = detectFeatures(cv, gray1, nFeatures);
-    const features2 = detectFeatures(cv, gray2, nFeatures);
+    // Detect features for movement check
+    const featuresRef = detectFeatures(cv, grayRef, nFeatures);
+    const featuresFrame = detectFeatures(cv, grayFrame, nFeatures);
 
-    if (features1.keypoints.size() < 10 || features2.keypoints.size() < 10) {
-      // Not enough features
-      features1.keypoints.delete();
-      features1.descriptors.delete();
-      features1.orb.delete();
-      features2.keypoints.delete();
-      features2.descriptors.delete();
-      features2.orb.delete();
+    if (featuresRef.keypoints.size() < 10 || featuresFrame.keypoints.size() < 10) {
+      featuresRef.keypoints.delete();
+      featuresRef.descriptors.delete();
+      featuresRef.orb.delete();
+      featuresFrame.keypoints.delete();
+      featuresFrame.descriptors.delete();
+      featuresFrame.orb.delete();
       refMat.delete();
       frameMat.delete();
-      gray1.delete();
-      gray2.delete();
+      grayRef.delete();
+      grayFrame.delete();
 
       return {
         success: false,
@@ -275,26 +276,25 @@ export const stitchFrame = async (
       };
     }
 
-    // Match features
-    const { matches, goodMatches } = matchFeatures(
+    // Match features for movement detection
+    const { matches: movementMatches, goodMatches: goodMovementMatches } = matchFeatures(
       cv,
-      features1.descriptors,
-      features2.descriptors
+      featuresRef.descriptors,
+      featuresFrame.descriptors
     );
 
-    if (goodMatches.length < 4) {
-      // Not enough matches
-      matches.delete();
-      features1.keypoints.delete();
-      features1.descriptors.delete();
-      features1.orb.delete();
-      features2.keypoints.delete();
-      features2.descriptors.delete();
-      features2.orb.delete();
+    if (goodMovementMatches.length < 4) {
+      movementMatches.delete();
+      featuresRef.keypoints.delete();
+      featuresRef.descriptors.delete();
+      featuresRef.orb.delete();
+      featuresFrame.keypoints.delete();
+      featuresFrame.descriptors.delete();
+      featuresFrame.orb.delete();
       refMat.delete();
       frameMat.delete();
-      gray1.delete();
-      gray2.delete();
+      grayRef.delete();
+      grayFrame.delete();
 
       return {
         success: false,
@@ -304,27 +304,114 @@ export const stitchFrame = async (
       };
     }
 
-    // Calculate homography
-    const { homography, confidence, translationDistance } = calculateHomography(
+    // Calculate homography for movement detection
+    const { homography: movementHomography, translationDistance } = calculateHomography(
       cv,
-      features2.keypoints, // new frame keypoints
-      features1.keypoints, // panorama keypoints
+      featuresFrame.keypoints,
+      featuresRef.keypoints,
+      goodMovementMatches
+    );
+
+    // Check for minimum movement
+    const minMovementPixels = 30;
+    if (translationDistance < minMovementPixels) {
+      if (movementHomography) movementHomography.delete();
+      movementMatches.delete();
+      featuresRef.keypoints.delete();
+      featuresRef.descriptors.delete();
+      featuresRef.orb.delete();
+      featuresFrame.keypoints.delete();
+      featuresFrame.descriptors.delete();
+      featuresFrame.orb.delete();
+      refMat.delete();
+      frameMat.delete();
+      grayRef.delete();
+      grayFrame.delete();
+
+      return {
+        success: false,
+        confidence: 0,
+        matchedFeatures: goodMovementMatches.length,
+        error: `Insufficient movement (${translationDistance.toFixed(1)}px < ${minMovementPixels}px)`
+      };
+    }
+
+    // Movement detected! Clean up movement check resources
+    if (movementHomography) movementHomography.delete();
+    movementMatches.delete();
+    featuresRef.keypoints.delete();
+    featuresRef.descriptors.delete();
+    featuresRef.orb.delete();
+    refMat.delete();
+    grayRef.delete();
+
+    // Step 2: Now compare against panorama for correct positioning
+    // Get the current panorama region
+    const currentPanorama = ctx.getImageData(
+      Math.max(0, panoramaState.bounds.x),
+      Math.max(0, panoramaState.bounds.y),
+      Math.max(1, panoramaState.bounds.width),
+      Math.max(1, panoramaState.bounds.height)
+    );
+
+    const panoramaMat = cv.matFromImageData(currentPanorama);
+    const grayPanorama = new cv.Mat();
+    cv.cvtColor(panoramaMat, grayPanorama, cv.COLOR_RGBA2GRAY);
+
+    // Detect features in panorama
+    const featuresPanorama = detectFeatures(cv, grayPanorama, nFeatures);
+
+    // Use already detected features in new frame (featuresFrame)
+    // Match against panorama
+    const { matches, goodMatches } = matchFeatures(
+      cv,
+      featuresPanorama.descriptors,
+      featuresFrame.descriptors
+    );
+
+    if (goodMatches.length < 4) {
+      // Not enough matches
+      matches.delete();
+      featuresPanorama.keypoints.delete();
+      featuresPanorama.descriptors.delete();
+      featuresPanorama.orb.delete();
+      featuresFrame.keypoints.delete();
+      featuresFrame.descriptors.delete();
+      featuresFrame.orb.delete();
+      panoramaMat.delete();
+      frameMat.delete();
+      grayPanorama.delete();
+      grayFrame.delete();
+
+      return {
+        success: false,
+        confidence: 0,
+        matchedFeatures: 0,
+        error: 'Not enough feature matches against panorama'
+      };
+    }
+
+    // Calculate homography against panorama (not against last frame)
+    const { homography, confidence } = calculateHomography(
+      cv,
+      featuresFrame.keypoints, // new frame keypoints
+      featuresPanorama.keypoints, // panorama keypoints
       goodMatches
     );
 
     if (!homography || confidence === 0) {
       if (homography) homography.delete();
       matches.delete();
-      features1.keypoints.delete();
-      features1.descriptors.delete();
-      features1.orb.delete();
-      features2.keypoints.delete();
-      features2.descriptors.delete();
-      features2.orb.delete();
-      refMat.delete();
+      featuresPanorama.keypoints.delete();
+      featuresPanorama.descriptors.delete();
+      featuresPanorama.orb.delete();
+      featuresFrame.keypoints.delete();
+      featuresFrame.descriptors.delete();
+      featuresFrame.orb.delete();
+      panoramaMat.delete();
       frameMat.delete();
-      gray1.delete();
-      gray2.delete();
+      grayPanorama.delete();
+      grayFrame.delete();
 
       return {
         success: false,
@@ -334,43 +421,19 @@ export const stitchFrame = async (
       };
     }
 
-    // Check for minimum movement (reject if camera hasn't moved significantly)
-    const minMovementPixels = 30; // Minimum 30 pixels of movement to avoid false positives
-    if (translationDistance < minMovementPixels) {
-      if (homography) homography.delete();
-      matches.delete();
-      features1.keypoints.delete();
-      features1.descriptors.delete();
-      features1.orb.delete();
-      features2.keypoints.delete();
-      features2.descriptors.delete();
-      features2.orb.delete();
-      refMat.delete();
-      frameMat.delete();
-      gray1.delete();
-      gray2.delete();
-
-      return {
-        success: false,
-        confidence,
-        matchedFeatures: goodMatches.length,
-        error: `Insufficient movement (${translationDistance.toFixed(1)}px < ${minMovementPixels}px)`
-      };
-    }
-
     if (homography.empty() || confidence < minConfidence) {
       if (homography) homography.delete();
       matches.delete();
-      features1.keypoints.delete();
-      features1.descriptors.delete();
-      features1.orb.delete();
-      features2.keypoints.delete();
-      features2.descriptors.delete();
-      features2.orb.delete();
-      refMat.delete();
+      featuresPanorama.keypoints.delete();
+      featuresPanorama.descriptors.delete();
+      featuresPanorama.orb.delete();
+      featuresFrame.keypoints.delete();
+      featuresFrame.descriptors.delete();
+      featuresFrame.orb.delete();
+      panoramaMat.delete();
       frameMat.delete();
-      gray1.delete();
-      gray2.delete();
+      grayPanorama.delete();
+      grayFrame.delete();
 
       return {
         success: false,
@@ -433,16 +496,16 @@ export const stitchFrame = async (
     // Cleanup
     homography.delete();
     matches.delete();
-    features1.keypoints.delete();
-    features1.descriptors.delete();
-    features1.orb.delete();
-    features2.keypoints.delete();
-    features2.descriptors.delete();
-    features2.orb.delete();
-    refMat.delete();
+    featuresPanorama.keypoints.delete();
+    featuresPanorama.descriptors.delete();
+    featuresPanorama.orb.delete();
+    featuresFrame.keypoints.delete();
+    featuresFrame.descriptors.delete();
+    featuresFrame.orb.delete();
+    panoramaMat.delete();
     frameMat.delete();
-    gray1.delete();
-    gray2.delete();
+    grayPanorama.delete();
+    grayFrame.delete();
     warped.delete();
 
     // Export cropped panorama for preview (only the actual content area)
@@ -455,7 +518,7 @@ export const stitchFrame = async (
       matchedFeatures: goodMatches.length,
       homography: homographyClone,
       framePosition: framePosition || undefined,
-      translationDistance
+      translationDistance // from movement check
     };
   } catch (error) {
     console.error('Stitching error:', error);
