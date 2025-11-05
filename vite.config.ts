@@ -12,11 +12,6 @@ export default defineConfig({
   ],
   optimizeDeps: {
     exclude: ['@rust-wasm/image-processor']
-  },
-  server: {
-    headers: {
-      'Cross-Origin-Opener-Policy': 'same-origin',
-      'Cross-Origin-Embedder-Policy': 'require-corp'
-    }
   }
+  // Removed COEP/CORP headers to allow loading OpenCV from external CDN
 })
