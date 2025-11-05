@@ -86,7 +86,9 @@ export const useContinuousStitching = (videoRef: React.RefObject<HTMLVideoElemen
 
       // Initialize panorama
       panoramaStateRef.current = initPanorama(firstFrame);
-      setPanoramaDataUrl(panoramaStateRef.current.canvas.toDataURL('image/png'));
+      // Export only the content area, not the full 3x canvas
+      const initialPanorama = exportPanorama(panoramaStateRef.current);
+      setPanoramaDataUrl(initialPanorama);
 
       setStats({
         framesProcessed: 1,

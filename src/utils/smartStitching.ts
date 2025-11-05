@@ -445,9 +445,12 @@ export const stitchFrame = async (
     gray2.delete();
     warped.delete();
 
+    // Export cropped panorama for preview (only the actual content area)
+    const panoramaDataUrl = exportPanorama(panoramaState);
+
     return {
       success: true,
-      panorama: panoramaCanvas.toDataURL('image/png'),
+      panorama: panoramaDataUrl,
       confidence,
       matchedFeatures: goodMatches.length,
       homography: homographyClone,
