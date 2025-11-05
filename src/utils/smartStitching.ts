@@ -253,6 +253,41 @@ export const stitchFrame = async (
     cv.cvtColor(refMat, grayRef, cv.COLOR_RGBA2GRAY);
     cv.cvtColor(frameMat, grayFrame, cv.COLOR_RGBA2GRAY);
 
+    // Pre-check: Use Mean Squared Error (MSE) for quick similarity check
+    // This is much more robust to noise than feature-based homography
+    // If images are too similar, reject immediately before expensive feature detection
+    const diff = new cv.Mat();
+    cv.absdiff(grayRef, grayFrame, diff);
+
+    // Convert to 32-bit float for mean calculation
+    const diff32f = new cv.Mat();
+    diff.convertTo(diff32f, cv.CV_32F);
+
+    // Calculate mean squared error
+    const mean = cv.mean(diff32f);
+    const mse = mean[0]; // MSE value (0 = identical, 255 = completely different)
+
+    diff.delete();
+    diff32f.delete();
+
+    // If MSE is very low, images are essentially identical (static camera)
+    // Threshold: MSE < 2.0 means < 1% difference on average per pixel
+    const mseThreshold = 2.0;
+    if (mse < mseThreshold) {
+      // Clean up only the matrices that exist at this point
+      refMat.delete();
+      frameMat.delete();
+      grayRef.delete();
+      grayFrame.delete();
+
+      return {
+        success: false,
+        confidence: 0,
+        matchedFeatures: 0,
+        error: `Static camera detected (MSE: ${mse.toFixed(3)} < ${mseThreshold})`
+      };
+    }
+
     // Detect features for movement check
     const featuresRef = detectFeatures(cv, grayRef, nFeatures);
     const featuresFrame = detectFeatures(cv, grayFrame, nFeatures);
