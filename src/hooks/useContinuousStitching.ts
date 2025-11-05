@@ -50,7 +50,7 @@ export const useContinuousStitching = (videoRef: React.RefObject<HTMLVideoElemen
       setIsStitching(true);
 
       // Capture first frame as base
-      const firstFrame = captureFrameFromVideo(videoRef.current);
+      const firstFrame = await captureFrameFromVideo(videoRef.current);
       if (!firstFrame) {
         console.error('Failed to capture first frame');
         setIsStitching(false);
@@ -77,9 +77,10 @@ export const useContinuousStitching = (videoRef: React.RefObject<HTMLVideoElemen
         setStats(prev => ({ ...prev, isProcessing: true }));
 
         try {
-          const frame = captureFrameFromVideo(videoRef.current!);
+          const frame = await captureFrameFromVideo(videoRef.current!);
           if (!frame) {
             processingRef.current = false;
+            setStats(prev => ({ ...prev, isProcessing: false }));
             return;
           }
 
@@ -170,8 +171,8 @@ export const useContinuousStitching = (videoRef: React.RefObject<HTMLVideoElemen
 /**
  * Capture current frame from video element
  */
-const captureFrameFromVideo = (video: HTMLVideoElement): HTMLImageElement | null => {
-  if (!video || video.videoWidth === 0) return null;
+const captureFrameFromVideo = async (video: HTMLVideoElement): Promise<HTMLImageElement | null> => {
+  if (!video || video.videoWidth === 0 || video.videoHeight === 0) return null;
 
   const canvas = document.createElement('canvas');
   canvas.width = video.videoWidth;
@@ -182,8 +183,13 @@ const captureFrameFromVideo = (video: HTMLVideoElement): HTMLImageElement | null
 
   ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-  const img = new Image();
-  img.src = canvas.toDataURL('image/png');
+  const dataUrl = canvas.toDataURL('image/png');
 
-  return img;
+  // Wait for image to load completely
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error('Failed to load frame image'));
+    img.src = dataUrl;
+  });
 };

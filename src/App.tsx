@@ -68,21 +68,20 @@ function App() {
   return (
     <div className="app-container">
       <header className="app-header">
-        <h1>Microscope Scanner</h1>
-        <p>Intelligent panorama stitching with feature detection</p>
+        <h1>🔬 Microscope Scanner</h1>
 
         <div className="mode-selector">
           <button
             className={`mode-btn ${mode === 'continuous' ? 'active' : ''}`}
             onClick={() => setMode('continuous')}
           >
-            Continuous Mode
+            🎥 Continuous
           </button>
           <button
             className={`mode-btn ${mode === 'manual' ? 'active' : ''}`}
             onClick={() => setMode('manual')}
           >
-            Manual Mode
+            📸 Manual
           </button>
         </div>
       </header>

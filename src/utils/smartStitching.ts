@@ -144,17 +144,35 @@ export const stitchFrame = async (
   minConfidence: number = 30
 ): Promise<StitchResult> => {
   try {
+    // Validate new frame dimensions
+    if (!newFrame.width || !newFrame.height || newFrame.width === 0 || newFrame.height === 0) {
+      return {
+        success: false,
+        confidence: 0,
+        error: 'Invalid frame dimensions'
+      };
+    }
+
     // Convert images to cv.Mat
     const panoramaCanvas = panoramaState.canvas;
     const ctx = panoramaCanvas.getContext('2d');
     if (!ctx) throw new Error('Cannot get canvas context');
 
+    // Validate bounds before getImageData
+    if (panoramaState.bounds.width <= 0 || panoramaState.bounds.height <= 0) {
+      return {
+        success: false,
+        confidence: 0,
+        error: 'Invalid panorama bounds'
+      };
+    }
+
     // Get the current panorama region as image
     const currentPanorama = ctx.getImageData(
-      panoramaState.bounds.x,
-      panoramaState.bounds.y,
-      panoramaState.bounds.width,
-      panoramaState.bounds.height
+      Math.max(0, panoramaState.bounds.x),
+      Math.max(0, panoramaState.bounds.y),
+      Math.max(1, panoramaState.bounds.width),
+      Math.max(1, panoramaState.bounds.height)
     );
 
     // Create cv.Mat from imageData
