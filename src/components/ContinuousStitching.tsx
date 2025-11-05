@@ -39,6 +39,7 @@ export const ContinuousStitching: React.FC<ContinuousStitchingProps> = ({
   const [selectedDevice, setSelectedDevice] = useState<string>('');
   const [minConfidence, setMinConfidence] = useState(30);
   const [captureInterval, setCaptureInterval] = useState(500);
+  const [featureCount, setFeatureCount] = useState(1500);
 
   useEffect(() => {
     if (devices.length > 0 && !selectedDevice) {
@@ -65,7 +66,7 @@ export const ContinuousStitching: React.FC<ContinuousStitchingProps> = ({
   };
 
   const handleStartStitching = () => {
-    startStitching(minConfidence, captureInterval);
+    startStitching(minConfidence, captureInterval, featureCount);
   };
 
   const handleStopStitching = () => {
@@ -141,6 +142,25 @@ export const ContinuousStitching: React.FC<ContinuousStitchingProps> = ({
             />
             <span className="slider-value">{captureInterval}ms</span>
           </div>
+        </div>
+
+        <div className="control-group">
+          <label>Feature Detection (ORB):</label>
+          <div className="slider-group">
+            <input
+              type="range"
+              min="500"
+              max="3000"
+              step="100"
+              value={featureCount}
+              onChange={(e) => setFeatureCount(parseInt(e.target.value))}
+              disabled={isStitching}
+            />
+            <span className="slider-value">{featureCount} features</span>
+          </div>
+          <small style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.25rem' }}>
+            Higher = Better overlap detection, slower processing
+          </small>
         </div>
       </div>
 

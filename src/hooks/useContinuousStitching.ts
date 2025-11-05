@@ -63,7 +63,7 @@ export const useContinuousStitching = (videoRef: React.RefObject<HTMLVideoElemen
    * Start continuous stitching from video stream
    */
   const startStitching = useCallback(
-    async (minConfidence: number = 30, captureIntervalMs: number = 500) => {
+    async (minConfidence: number = 30, captureIntervalMs: number = 500, nFeatures: number = 1500) => {
       if (!cvLoaded || !cv) {
         console.error('OpenCV not loaded');
         return;
@@ -117,7 +117,8 @@ export const useContinuousStitching = (videoRef: React.RefObject<HTMLVideoElemen
             cv,
             panoramaStateRef.current,
             frame,
-            minConfidence
+            minConfidence,
+            nFeatures
           );
 
           // Update region map if frame was successfully stitched

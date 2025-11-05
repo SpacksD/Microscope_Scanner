@@ -57,12 +57,13 @@ export const initPanorama = (initialImage: HTMLImageElement): PanoramaState => {
 /**
  * Detect and compute ORB features
  */
-export const detectFeatures = (cv: any, imgMat: any) => {
+export const detectFeatures = (cv: any, imgMat: any, nFeatures: number = 1500) => {
   const keypoints = new cv.KeyPointVector();
   const descriptors = new cv.Mat();
 
   // Use ORB detector (faster than SIFT/SURF and patent-free)
-  const orb = new cv.ORB(500); // 500 features
+  // Increased from 500 to 1500+ for better overlap detection
+  const orb = new cv.ORB(nFeatures);
   orb.detectAndCompute(imgMat, new cv.Mat(), keypoints, descriptors);
 
   return { keypoints, descriptors, orb };
@@ -92,11 +93,12 @@ export const matchFeatures = (
     matchesArray.push(matches.get(i));
   }
 
-  // Sort by distance
+  // Sort by distance (lower distance = better match)
   matchesArray.sort((a, b) => a.distance - b.distance);
 
-  // Take top 30% of matches
-  const numGoodMatches = Math.min(50, Math.floor(matchesArray.length * 0.3));
+  // Take top 40% of matches, increased limit for better overlap detection
+  // With 1500 features, we can get more matches for robust detection
+  const numGoodMatches = Math.min(150, Math.floor(matchesArray.length * 0.4));
   for (let i = 0; i < numGoodMatches; i++) {
     goodMatches.push(matchesArray[i]);
   }
@@ -171,7 +173,8 @@ export const calculateHomography = (
   const homography = cv.findHomography(srcMat, dstMat, cv.RANSAC, 5.0);
 
   // Calculate confidence based on number of valid matches
-  const confidence = Math.min(100, (validMatches.length / 50) * 100);
+  // Adjusted for increased feature count (up to 150 matches now)
+  const confidence = Math.min(100, (validMatches.length / 100) * 100);
 
   // Calculate translation distance
   const translationDistance = calculateTranslationDistance(homography);
@@ -189,7 +192,8 @@ export const stitchFrame = async (
   cv: any,
   panoramaState: PanoramaState,
   newFrame: HTMLImageElement,
-  minConfidence: number = 30
+  minConfidence: number = 30,
+  nFeatures: number = 1500
 ): Promise<StitchResult> => {
   try {
     // Validate new frame dimensions
@@ -243,9 +247,9 @@ export const stitchFrame = async (
     cv.cvtColor(panoramaMat, gray1, cv.COLOR_RGBA2GRAY);
     cv.cvtColor(frameMat, gray2, cv.COLOR_RGBA2GRAY);
 
-    // Detect features
-    const features1 = detectFeatures(cv, gray1);
-    const features2 = detectFeatures(cv, gray2);
+    // Detect features with configurable feature count
+    const features1 = detectFeatures(cv, gray1, nFeatures);
+    const features2 = detectFeatures(cv, gray2, nFeatures);
 
     if (features1.keypoints.size() < 10 || features2.keypoints.size() < 10) {
       // Not enough features
