@@ -108,25 +108,36 @@ export const calculateHomography = (
     return { homography: null, confidence: 0 };
   }
 
-  // Extract matched points
+  // Extract matched points with validation
   const srcPoints = [];
   const dstPoints = [];
+  const validMatches = [];
 
   for (const match of goodMatches) {
     const kp1 = keypoints1.get(match.queryIdx);
     const kp2 = keypoints2.get(match.trainIdx);
-    srcPoints.push(kp1.pt.x, kp1.pt.y);
-    dstPoints.push(kp2.pt.x, kp2.pt.y);
+
+    // Validate keypoints exist and have pt property
+    if (kp1 && kp2 && kp1.pt && kp2.pt) {
+      srcPoints.push(kp1.pt.x, kp1.pt.y);
+      dstPoints.push(kp2.pt.x, kp2.pt.y);
+      validMatches.push(match);
+    }
   }
 
-  const srcMat = cv.matFromArray(goodMatches.length, 1, cv.CV_32FC2, srcPoints);
-  const dstMat = cv.matFromArray(goodMatches.length, 1, cv.CV_32FC2, dstPoints);
+  // Check if we still have enough valid matches
+  if (validMatches.length < 4) {
+    return { homography: null, confidence: 0 };
+  }
+
+  const srcMat = cv.matFromArray(validMatches.length, 1, cv.CV_32FC2, srcPoints);
+  const dstMat = cv.matFromArray(validMatches.length, 1, cv.CV_32FC2, dstPoints);
 
   // Find homography with RANSAC
   const homography = cv.findHomography(srcMat, dstMat, cv.RANSAC, 5.0);
 
-  // Calculate confidence based on number of matches and homography quality
-  const confidence = Math.min(100, (goodMatches.length / 50) * 100);
+  // Calculate confidence based on number of valid matches
+  const confidence = Math.min(100, (validMatches.length / 50) * 100);
 
   srcMat.delete();
   dstMat.delete();
@@ -256,7 +267,29 @@ export const stitchFrame = async (
       goodMatches
     );
 
-    if (!homography || homography.empty() || confidence < minConfidence) {
+    if (!homography || confidence === 0) {
+      if (homography) homography.delete();
+      matches.delete();
+      features1.keypoints.delete();
+      features1.descriptors.delete();
+      features1.orb.delete();
+      features2.keypoints.delete();
+      features2.descriptors.delete();
+      features2.orb.delete();
+      panoramaMat.delete();
+      frameMat.delete();
+      gray1.delete();
+      gray2.delete();
+
+      return {
+        success: false,
+        confidence: 0,
+        matchedFeatures: goodMatches.length,
+        error: 'Invalid keypoints or homography'
+      };
+    }
+
+    if (homography.empty() || confidence < minConfidence) {
       if (homography) homography.delete();
       matches.delete();
       features1.keypoints.delete();
