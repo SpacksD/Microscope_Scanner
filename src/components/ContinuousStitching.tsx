@@ -228,7 +228,7 @@ export const ContinuousStitching: React.FC<ContinuousStitchingProps> = ({
             </div>
             <div className="stat-item">
               <span className="stat-label">Camera Movement:</span>
-              <span className="stat-value" style={{ color: stats.lastMovement < 15 ? '#ef4444' : '#10b981' }}>
+              <span className="stat-value" style={{ color: stats.lastMovement < 30 ? '#ef4444' : '#10b981' }}>
                 {stats.lastMovement.toFixed(1)}px
               </span>
             </div>

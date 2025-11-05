@@ -24,6 +24,7 @@ export interface PanoramaState {
   canvas: HTMLCanvasElement;
   bounds: { x: number; y: number; width: number; height: number };
   frameCount: number;
+  lastAcceptedFrame?: HTMLImageElement; // Last successfully stitched frame for comparison
 }
 
 /**
@@ -50,7 +51,8 @@ export const initPanorama = (initialImage: HTMLImageElement): PanoramaState => {
       width: initialImage.width,
       height: initialImage.height
     },
-    frameCount: 1
+    frameCount: 1,
+    lastAcceptedFrame: initialImage
   };
 };
 
@@ -210,25 +212,27 @@ export const stitchFrame = async (
     const ctx = panoramaCanvas.getContext('2d');
     if (!ctx) throw new Error('Cannot get canvas context');
 
-    // Validate bounds before getImageData
-    if (panoramaState.bounds.width <= 0 || panoramaState.bounds.height <= 0) {
+    // Use last accepted frame for comparison instead of full panorama
+    // This prevents false movement detection as panorama grows
+    const referenceFrame = panoramaState.lastAcceptedFrame;
+    if (!referenceFrame) {
       return {
         success: false,
         confidence: 0,
-        error: 'Invalid panorama bounds'
+        error: 'No reference frame available'
       };
     }
 
-    // Get the current panorama region as image
-    const currentPanorama = ctx.getImageData(
-      Math.max(0, panoramaState.bounds.x),
-      Math.max(0, panoramaState.bounds.y),
-      Math.max(1, panoramaState.bounds.width),
-      Math.max(1, panoramaState.bounds.height)
-    );
+    // Create cv.Mat from reference frame (last accepted frame)
+    const refCanvas = document.createElement('canvas');
+    refCanvas.width = referenceFrame.width;
+    refCanvas.height = referenceFrame.height;
+    const refCtx = refCanvas.getContext('2d');
+    if (!refCtx) throw new Error('Cannot get reference context');
+    refCtx.drawImage(referenceFrame, 0, 0);
 
-    // Create cv.Mat from imageData
-    const panoramaMat = cv.matFromImageData(currentPanorama);
+    const refImageData = refCtx.getImageData(0, 0, referenceFrame.width, referenceFrame.height);
+    const refMat = cv.matFromImageData(refImageData);
 
     // Create temporary canvas for new frame
     const frameCanvas = document.createElement('canvas');
@@ -244,7 +248,7 @@ export const stitchFrame = async (
     // Convert to grayscale for feature detection
     const gray1 = new cv.Mat();
     const gray2 = new cv.Mat();
-    cv.cvtColor(panoramaMat, gray1, cv.COLOR_RGBA2GRAY);
+    cv.cvtColor(refMat, gray1, cv.COLOR_RGBA2GRAY);
     cv.cvtColor(frameMat, gray2, cv.COLOR_RGBA2GRAY);
 
     // Detect features with configurable feature count
@@ -259,7 +263,7 @@ export const stitchFrame = async (
       features2.keypoints.delete();
       features2.descriptors.delete();
       features2.orb.delete();
-      panoramaMat.delete();
+      refMat.delete();
       frameMat.delete();
       gray1.delete();
       gray2.delete();
@@ -287,7 +291,7 @@ export const stitchFrame = async (
       features2.keypoints.delete();
       features2.descriptors.delete();
       features2.orb.delete();
-      panoramaMat.delete();
+      refMat.delete();
       frameMat.delete();
       gray1.delete();
       gray2.delete();
@@ -317,7 +321,7 @@ export const stitchFrame = async (
       features2.keypoints.delete();
       features2.descriptors.delete();
       features2.orb.delete();
-      panoramaMat.delete();
+      refMat.delete();
       frameMat.delete();
       gray1.delete();
       gray2.delete();
@@ -331,7 +335,7 @@ export const stitchFrame = async (
     }
 
     // Check for minimum movement (reject if camera hasn't moved significantly)
-    const minMovementPixels = 15; // Minimum 15 pixels of movement
+    const minMovementPixels = 30; // Minimum 30 pixels of movement to avoid false positives
     if (translationDistance < minMovementPixels) {
       if (homography) homography.delete();
       matches.delete();
@@ -341,7 +345,7 @@ export const stitchFrame = async (
       features2.keypoints.delete();
       features2.descriptors.delete();
       features2.orb.delete();
-      panoramaMat.delete();
+      refMat.delete();
       frameMat.delete();
       gray1.delete();
       gray2.delete();
@@ -363,7 +367,7 @@ export const stitchFrame = async (
       features2.keypoints.delete();
       features2.descriptors.delete();
       features2.orb.delete();
-      panoramaMat.delete();
+      refMat.delete();
       frameMat.delete();
       gray1.delete();
       gray2.delete();
@@ -411,6 +415,9 @@ export const stitchFrame = async (
     panoramaState.bounds = newBounds;
     panoramaState.frameCount++;
 
+    // Update last accepted frame for next comparison
+    panoramaState.lastAcceptedFrame = newFrame;
+
     // Calculate frame position in panorama space
     const framePosition = calculateFramePosition(
       cv,
@@ -432,7 +439,7 @@ export const stitchFrame = async (
     features2.keypoints.delete();
     features2.descriptors.delete();
     features2.orb.delete();
-    panoramaMat.delete();
+    refMat.delete();
     frameMat.delete();
     gray1.delete();
     gray2.delete();
