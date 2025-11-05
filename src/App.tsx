@@ -1,19 +1,23 @@
 import { useState, useCallback } from 'react'
 import { CameraCapture } from './components/CameraCapture'
+import { ContinuousStitching } from './components/ContinuousStitching'
 import { ImageViewer } from './components/ImageViewer'
 import { ControlPanel } from './components/ControlPanel'
 import type { CapturedImage, CameraSettings, ViewerSettings } from './types'
 import { stitchImagesAdvanced, exportImage } from './utils/imageProcessing'
 import './App.css'
 
+type CaptureMode = 'manual' | 'continuous';
+
 function App() {
+  const [mode, setMode] = useState<CaptureMode>('continuous');
   const [images, setImages] = useState<CapturedImage[]>([]);
   const [compositeImage, setCompositeImage] = useState<string | undefined>();
   const [isStitching, setIsStitching] = useState(false);
 
   const cameraSettings: CameraSettings = {
-    width: 1920,
-    height: 1080,
+    width: 1280,
+    height: 720,
     facingMode: 'environment'
   };
 
@@ -26,6 +30,10 @@ function App() {
 
   const handleCapture = useCallback((image: CapturedImage) => {
     setImages(prev => [...prev, image]);
+  }, []);
+
+  const handlePanoramaUpdate = useCallback((dataUrl: string) => {
+    setCompositeImage(dataUrl);
   }, []);
 
   const handleClearImages = useCallback(() => {
@@ -61,7 +69,22 @@ function App() {
     <div className="app-container">
       <header className="app-header">
         <h1>Microscope Scanner</h1>
-        <p>Capture and stitch high-resolution microscope images</p>
+        <p>Intelligent panorama stitching with feature detection</p>
+
+        <div className="mode-selector">
+          <button
+            className={`mode-btn ${mode === 'continuous' ? 'active' : ''}`}
+            onClick={() => setMode('continuous')}
+          >
+            Continuous Mode
+          </button>
+          <button
+            className={`mode-btn ${mode === 'manual' ? 'active' : ''}`}
+            onClick={() => setMode('manual')}
+          >
+            Manual Mode
+          </button>
+        </div>
       </header>
 
       <div className="app-layout">
@@ -77,15 +100,22 @@ function App() {
 
         <main className="main-content">
           <section className="capture-section">
-            <CameraCapture
-              onCapture={handleCapture}
-              settings={cameraSettings}
-            />
+            {mode === 'continuous' ? (
+              <ContinuousStitching
+                settings={cameraSettings}
+                onPanoramaUpdate={handlePanoramaUpdate}
+              />
+            ) : (
+              <CameraCapture
+                onCapture={handleCapture}
+                settings={cameraSettings}
+              />
+            )}
           </section>
 
           <section className="viewer-section">
             <ImageViewer
-              images={images}
+              images={mode === 'manual' ? images : []}
               settings={viewerSettings}
               compositeImage={compositeImage}
             />

@@ -1,0 +1,269 @@
+.continuous-stitching {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1rem;
+  background: #1a1a1a;
+  border-radius: 8px;
+}
+
+.stitching-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid #8b5cf6;
+}
+
+.stitching-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: #8b5cf6;
+}
+
+.loading-cv {
+  font-size: 0.85rem;
+  color: #f59e0b;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.camera-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.control-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.control-group label {
+  font-weight: 500;
+  font-size: 0.9rem;
+  color: #ccc;
+}
+
+.control-group select {
+  padding: 0.5rem;
+  border: 1px solid #444;
+  background: #2a2a2a;
+  color: white;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.slider-group {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.slider-group input[type="range"] {
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+  background: #2a2a2a;
+  outline: none;
+  -webkit-appearance: none;
+}
+
+.slider-group input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #8b5cf6;
+  cursor: pointer;
+}
+
+.slider-group input[type="range"]::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #8b5cf6;
+  cursor: pointer;
+  border: none;
+}
+
+.slider-value {
+  min-width: 60px;
+  text-align: right;
+  font-weight: 600;
+  color: #8b5cf6;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.action-buttons button {
+  flex: 1;
+  min-width: 120px;
+  padding: 0.75rem 1rem;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-start-stitch {
+  background: #10b981;
+  color: white;
+}
+
+.btn-start-stitch:hover {
+  background: #059669;
+}
+
+.btn-stop-stitch {
+  background: #f59e0b;
+  color: white;
+}
+
+.btn-stop-stitch:hover {
+  background: #d97706;
+}
+
+.btn-reset {
+  background: #ef4444;
+  color: white;
+}
+
+.btn-reset:hover {
+  background: #dc2626;
+}
+
+.stitching-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1rem;
+  background: #242424;
+  border-radius: 6px;
+  border-left: 3px solid #8b5cf6;
+}
+
+.stat-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.9rem;
+}
+
+.stat-label {
+  color: #999;
+}
+
+.stat-value {
+  font-weight: 600;
+  color: #fff;
+}
+
+.stat-value.success {
+  color: #10b981;
+}
+
+.stat-value.confidence {
+  font-size: 1.05rem;
+}
+
+.processing-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem;
+  background: #1a1a1a;
+  border-radius: 4px;
+  margin-top: 0.5rem;
+}
+
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid #333;
+  border-top-color: #8b5cf6;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.error-hint {
+  font-size: 0.85rem;
+  color: #ef4444;
+  padding: 0.5rem;
+  background: #7f1d1d;
+  border-radius: 4px;
+  margin-top: 0.5rem;
+}
+
+.video-container {
+  position: relative;
+  width: 100%;
+  background: #000;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.video-feed {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.overlay-indicators {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: 1rem;
+  pointer-events: none;
+}
+
+.recording-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: rgba(239, 68, 68, 0.9);
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: white;
+  backdrop-filter: blur(4px);
+}
+
+.recording-dot {
+  width: 8px;
+  height: 8px;
+  background: white;
+  border-radius: 50%;
+  animation: blink 1s infinite;
+}
+
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0.3; }
+}
+
+.error-message {
+  padding: 0.75rem;
+  background: #7f1d1d;
+  color: #fca5a5;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}

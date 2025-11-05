@@ -1,0 +1,353 @@
+/**
+ * Smart image stitching using OpenCV.js with feature detection
+ */
+
+export interface StitchResult {
+  success: boolean;
+  panorama?: string;
+  confidence: number;
+  matchedFeatures?: number;
+  error?: string;
+}
+
+export interface PanoramaState {
+  canvas: HTMLCanvasElement;
+  bounds: { x: number; y: number; width: number; height: number };
+  frameCount: number;
+}
+
+/**
+ * Initialize a new panorama canvas
+ */
+export const initPanorama = (initialImage: HTMLImageElement): PanoramaState => {
+  const canvas = document.createElement('canvas');
+  canvas.width = initialImage.width * 3; // Start with 3x space
+  canvas.height = initialImage.height * 3;
+
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Cannot get canvas context');
+
+  // Draw first image in center
+  const centerX = canvas.width / 2 - initialImage.width / 2;
+  const centerY = canvas.height / 2 - initialImage.height / 2;
+  ctx.drawImage(initialImage, centerX, centerY);
+
+  return {
+    canvas,
+    bounds: {
+      x: centerX,
+      y: centerY,
+      width: initialImage.width,
+      height: initialImage.height
+    },
+    frameCount: 1
+  };
+};
+
+/**
+ * Detect and compute ORB features
+ */
+export const detectFeatures = (cv: any, imgMat: any) => {
+  const keypoints = new cv.KeyPointVector();
+  const descriptors = new cv.Mat();
+
+  // Use ORB detector (faster than SIFT/SURF and patent-free)
+  const orb = new cv.ORB(500); // 500 features
+  orb.detectAndCompute(imgMat, new cv.Mat(), keypoints, descriptors);
+
+  return { keypoints, descriptors, orb };
+};
+
+/**
+ * Match features between two images
+ */
+export const matchFeatures = (
+  cv: any,
+  descriptors1: any,
+  descriptors2: any
+): { matches: any; goodMatches: any[] } => {
+  // Use BFMatcher with Hamming distance (for ORB)
+  const bf = new cv.BFMatcher(cv.NORM_HAMMING, true);
+  const matches = new cv.DMatchVector();
+
+  if (descriptors1.rows >= 2 && descriptors2.rows >= 2) {
+    bf.match(descriptors1, descriptors2, matches);
+  }
+
+  // Filter good matches (Lowe's ratio test adaptation)
+  const goodMatches: any[] = [];
+  const matchesArray = [];
+
+  for (let i = 0; i < matches.size(); i++) {
+    matchesArray.push(matches.get(i));
+  }
+
+  // Sort by distance
+  matchesArray.sort((a, b) => a.distance - b.distance);
+
+  // Take top 30% of matches
+  const numGoodMatches = Math.min(50, Math.floor(matchesArray.length * 0.3));
+  for (let i = 0; i < numGoodMatches; i++) {
+    goodMatches.push(matchesArray[i]);
+  }
+
+  bf.delete();
+  return { matches, goodMatches };
+};
+
+/**
+ * Calculate homography matrix from matched features
+ */
+export const calculateHomography = (
+  cv: any,
+  keypoints1: any,
+  keypoints2: any,
+  goodMatches: any[]
+): { homography: any; confidence: number } => {
+  if (goodMatches.length < 4) {
+    return { homography: null, confidence: 0 };
+  }
+
+  // Extract matched points
+  const srcPoints = [];
+  const dstPoints = [];
+
+  for (const match of goodMatches) {
+    const kp1 = keypoints1.get(match.queryIdx);
+    const kp2 = keypoints2.get(match.trainIdx);
+    srcPoints.push(kp1.pt.x, kp1.pt.y);
+    dstPoints.push(kp2.pt.x, kp2.pt.y);
+  }
+
+  const srcMat = cv.matFromArray(goodMatches.length, 1, cv.CV_32FC2, srcPoints);
+  const dstMat = cv.matFromArray(goodMatches.length, 1, cv.CV_32FC2, dstPoints);
+
+  // Find homography with RANSAC
+  const homography = cv.findHomography(srcMat, dstMat, cv.RANSAC, 5.0);
+
+  // Calculate confidence based on number of matches and homography quality
+  const confidence = Math.min(100, (goodMatches.length / 50) * 100);
+
+  srcMat.delete();
+  dstMat.delete();
+
+  return { homography, confidence };
+};
+
+/**
+ * Stitch new frame to existing panorama
+ */
+export const stitchFrame = async (
+  cv: any,
+  panoramaState: PanoramaState,
+  newFrame: HTMLImageElement,
+  minConfidence: number = 30
+): Promise<StitchResult> => {
+  try {
+    // Convert images to cv.Mat
+    const panoramaCanvas = panoramaState.canvas;
+    const ctx = panoramaCanvas.getContext('2d');
+    if (!ctx) throw new Error('Cannot get canvas context');
+
+    // Get the current panorama region as image
+    const currentPanorama = ctx.getImageData(
+      panoramaState.bounds.x,
+      panoramaState.bounds.y,
+      panoramaState.bounds.width,
+      panoramaState.bounds.height
+    );
+
+    // Create cv.Mat from imageData
+    const panoramaMat = cv.matFromImageData(currentPanorama);
+
+    // Create temporary canvas for new frame
+    const frameCanvas = document.createElement('canvas');
+    frameCanvas.width = newFrame.width;
+    frameCanvas.height = newFrame.height;
+    const frameCtx = frameCanvas.getContext('2d');
+    if (!frameCtx) throw new Error('Cannot get frame context');
+    frameCtx.drawImage(newFrame, 0, 0);
+
+    const frameImageData = frameCtx.getImageData(0, 0, newFrame.width, newFrame.height);
+    const frameMat = cv.matFromImageData(frameImageData);
+
+    // Convert to grayscale for feature detection
+    const gray1 = new cv.Mat();
+    const gray2 = new cv.Mat();
+    cv.cvtColor(panoramaMat, gray1, cv.COLOR_RGBA2GRAY);
+    cv.cvtColor(frameMat, gray2, cv.COLOR_RGBA2GRAY);
+
+    // Detect features
+    const features1 = detectFeatures(cv, gray1);
+    const features2 = detectFeatures(cv, gray2);
+
+    if (features1.keypoints.size() < 10 || features2.keypoints.size() < 10) {
+      // Not enough features
+      features1.keypoints.delete();
+      features1.descriptors.delete();
+      features1.orb.delete();
+      features2.keypoints.delete();
+      features2.descriptors.delete();
+      features2.orb.delete();
+      panoramaMat.delete();
+      frameMat.delete();
+      gray1.delete();
+      gray2.delete();
+
+      return {
+        success: false,
+        confidence: 0,
+        error: 'Not enough features detected'
+      };
+    }
+
+    // Match features
+    const { matches, goodMatches } = matchFeatures(
+      cv,
+      features1.descriptors,
+      features2.descriptors
+    );
+
+    if (goodMatches.length < 4) {
+      // Not enough matches
+      matches.delete();
+      features1.keypoints.delete();
+      features1.descriptors.delete();
+      features1.orb.delete();
+      features2.keypoints.delete();
+      features2.descriptors.delete();
+      features2.orb.delete();
+      panoramaMat.delete();
+      frameMat.delete();
+      gray1.delete();
+      gray2.delete();
+
+      return {
+        success: false,
+        confidence: 0,
+        matchedFeatures: 0,
+        error: 'Not enough feature matches'
+      };
+    }
+
+    // Calculate homography
+    const { homography, confidence } = calculateHomography(
+      cv,
+      features2.keypoints, // new frame keypoints
+      features1.keypoints, // panorama keypoints
+      goodMatches
+    );
+
+    if (!homography || homography.empty() || confidence < minConfidence) {
+      if (homography) homography.delete();
+      matches.delete();
+      features1.keypoints.delete();
+      features1.descriptors.delete();
+      features1.orb.delete();
+      features2.keypoints.delete();
+      features2.descriptors.delete();
+      features2.orb.delete();
+      panoramaMat.delete();
+      frameMat.delete();
+      gray1.delete();
+      gray2.delete();
+
+      return {
+        success: false,
+        confidence,
+        matchedFeatures: goodMatches.length,
+        error: `Low confidence (${confidence.toFixed(1)}%)`
+      };
+    }
+
+    // Warp new frame to align with panorama
+    const warped = new cv.Mat();
+    const dsize = new cv.Size(panoramaCanvas.width, panoramaCanvas.height);
+    cv.warpPerspective(
+      frameMat,
+      warped,
+      homography,
+      dsize,
+      cv.INTER_LINEAR,
+      cv.BORDER_TRANSPARENT
+    );
+
+    // Convert warped frame back to canvas
+    const warpedCanvas = document.createElement('canvas');
+    warpedCanvas.width = panoramaCanvas.width;
+    warpedCanvas.height = panoramaCanvas.height;
+    cv.imshow(warpedCanvas, warped);
+
+    // Blend warped frame with existing panorama
+    ctx.globalAlpha = 0.5;
+    ctx.drawImage(warpedCanvas, 0, 0);
+    ctx.globalAlpha = 1.0;
+
+    // Update bounds (simplified - expand bounds if needed)
+    const expandMargin = 100;
+    const newBounds = {
+      x: Math.max(0, panoramaState.bounds.x - expandMargin),
+      y: Math.max(0, panoramaState.bounds.y - expandMargin),
+      width: Math.min(panoramaCanvas.width, panoramaState.bounds.width + expandMargin * 2),
+      height: Math.min(panoramaCanvas.height, panoramaState.bounds.height + expandMargin * 2)
+    };
+
+    panoramaState.bounds = newBounds;
+    panoramaState.frameCount++;
+
+    // Cleanup
+    homography.delete();
+    matches.delete();
+    features1.keypoints.delete();
+    features1.descriptors.delete();
+    features1.orb.delete();
+    features2.keypoints.delete();
+    features2.descriptors.delete();
+    features2.orb.delete();
+    panoramaMat.delete();
+    frameMat.delete();
+    gray1.delete();
+    gray2.delete();
+    warped.delete();
+
+    return {
+      success: true,
+      panorama: panoramaCanvas.toDataURL('image/png'),
+      confidence,
+      matchedFeatures: goodMatches.length
+    };
+  } catch (error) {
+    console.error('Stitching error:', error);
+    return {
+      success: false,
+      confidence: 0,
+      error: (error as Error).message
+    };
+  }
+};
+
+/**
+ * Export final panorama (crop to actual content)
+ */
+export const exportPanorama = (panoramaState: PanoramaState): string => {
+  const canvas = document.createElement('canvas');
+  canvas.width = panoramaState.bounds.width;
+  canvas.height = panoramaState.bounds.height;
+
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Cannot get canvas context');
+
+  ctx.drawImage(
+    panoramaState.canvas,
+    panoramaState.bounds.x,
+    panoramaState.bounds.y,
+    panoramaState.bounds.width,
+    panoramaState.bounds.height,
+    0,
+    0,
+    panoramaState.bounds.width,
+    panoramaState.bounds.height
+  );
+
+  return canvas.toDataURL('image/png');
+};
