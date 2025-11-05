@@ -65,9 +65,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
     if (compositeImage) {
       // Display stitched composite image
       viewer.addSimpleImage({
-        url: compositeImage,
-        index: 0,
-        replace: true
+        url: compositeImage
       });
     } else if (images.length > 0) {
       // Display individual images in a grid
