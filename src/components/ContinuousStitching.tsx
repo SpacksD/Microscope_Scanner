@@ -2,7 +2,10 @@ import { useEffect, useState } from 'react';
 import { useCamera } from '../hooks/useCamera';
 import { useContinuousStitching } from '../hooks/useContinuousStitching';
 import { Minimap } from './Minimap';
+import { SplitScreenView } from './SplitScreenView';
+import { QualityIndicator } from './QualityIndicator';
 import type { CameraSettings } from '../types';
+import type { FeatureDetectorType } from '../utils/featureDetectors';
 import './ContinuousStitching.css';
 
 interface ContinuousStitchingProps {
@@ -34,13 +37,17 @@ export const ContinuousStitching: React.FC<ContinuousStitchingProps> = ({
     startStitching,
     stopStitching,
     exportFinalPanorama,
-    reset
+    reset,
+    currentQualityMetrics,
+    stitchingConfig,
+    setStitchingConfig
   } = useContinuousStitching(videoRef);
 
   const [selectedDevice, setSelectedDevice] = useState<string>('');
   const [minConfidence, setMinConfidence] = useState(30);
   const [captureInterval, setCaptureInterval] = useState(500);
   const [featureCount, setFeatureCount] = useState(1500);
+  const [selectedDetector, setSelectedDetector] = useState<FeatureDetectorType>('ORB');
 
   useEffect(() => {
     if (devices.length > 0 && !selectedDevice) {
@@ -67,6 +74,12 @@ export const ContinuousStitching: React.FC<ContinuousStitchingProps> = ({
   };
 
   const handleStartStitching = () => {
+    // Update stitching config before starting
+    setStitchingConfig({
+      ...stitchingConfig,
+      featureDetector: selectedDetector,
+      nFeatures: featureCount
+    });
     startStitching(minConfidence, captureInterval, featureCount);
   };
 
@@ -183,7 +196,7 @@ export const ContinuousStitching: React.FC<ContinuousStitchingProps> = ({
         </div>
 
         <div className="control-group">
-          <label>Feature Detection (ORB):</label>
+          <label>Feature Detection:</label>
           <div className="slider-group">
             <input
               type="range"
@@ -198,6 +211,25 @@ export const ContinuousStitching: React.FC<ContinuousStitchingProps> = ({
           </div>
           <small style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.25rem' }}>
             Higher = Better overlap detection, slower processing
+          </small>
+        </div>
+
+        <div className="control-group">
+          <label>Feature Detector Algorithm:</label>
+          <select
+            value={selectedDetector}
+            onChange={(e) => setSelectedDetector(e.target.value as FeatureDetectorType)}
+            disabled={isStitching}
+            className="detector-selector"
+          >
+            <option value="ORB">ORB (Fast, Good for most cases)</option>
+            <option value="SURF">SURF (Best for Microscopy)</option>
+            <option value="SIFT">SIFT (Most Accurate, Slower)</option>
+          </select>
+          <small style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.25rem' }}>
+            {selectedDetector === 'ORB' && '🚀 Fast and patent-free, good general purpose'}
+            {selectedDetector === 'SURF' && '🔬 Recommended for microscopy imaging'}
+            {selectedDetector === 'SIFT' && '🎯 Most accurate but slower processing'}
           </small>
         </div>
       </div>
@@ -244,6 +276,41 @@ export const ContinuousStitching: React.FC<ContinuousStitchingProps> = ({
         </div>
       )}
 
+      {/* Professional Split-Screen View when stitching */}
+      {isStitching && (
+        <SplitScreenView
+          videoRef={videoRef}
+          panoramaDataUrl={panoramaDataUrl || ''}
+          stats={{
+            framesAccepted: stats.framesAccepted,
+            framesRejected: stats.framesProcessed - stats.framesAccepted,
+            isStitching: isStitching,
+            lastConfidence: stats.lastConfidence,
+            avgQuality: stats.avgQuality || 0,
+            coveragePercent:
+              coverageStats.totalRegions > 0
+                ? ((coverageStats.goodRegions + coverageStats.excellentRegions) /
+                    coverageStats.totalRegions) *
+                  100
+                : 0,
+            currentFPS: stats.currentFPS || 0,
+            lastError: stats.lastError
+          }}
+          showStats={true}
+          showCrosshair={true}
+        />
+      )}
+
+      {/* Quality Indicator - shown when quality metrics are available */}
+      {currentQualityMetrics && (
+        <div style={{ marginTop: '20px' }}>
+          <QualityIndicator
+            metrics={currentQualityMetrics}
+            showDetails={true}
+            compact={false}
+          />
+        </div>
+      )}
 
       {cameraError && (
         <div className="error-message">{cameraError}</div>

@@ -2,9 +2,10 @@ import { useState, useCallback, useRef } from 'react';
 import { useOpenCV } from './useOpenCV';
 import {
   initPanorama,
-  stitchFrame,
   exportPanorama,
-  type PanoramaState
+  stitchFrameV2,
+  type PanoramaState,
+  type StitchingConfig
 } from '../utils/smartStitching';
 import {
   initRegionMap,
@@ -13,6 +14,8 @@ import {
   type RegionMap,
   type CoverageStats
 } from '../utils/regionTracking';
+import { TranslationDatabase } from '../utils/translationDatabase';
+import type { QualityMetrics } from '../utils/qualityMetrics';
 
 export interface StitchingStats {
   framesProcessed: number;
@@ -29,6 +32,9 @@ export interface StitchingStats {
     width: number;
     height: number;
   };
+  currentQualityMetrics?: QualityMetrics;
+  avgQuality: number;
+  currentFPS: number;
 }
 
 export const useContinuousStitching = (videoRef: React.RefObject<HTMLVideoElement | null>) => {
@@ -42,7 +48,9 @@ export const useContinuousStitching = (videoRef: React.RefObject<HTMLVideoElemen
     lastMatchedFeatures: 0,
     isProcessing: false,
     overlapDetected: false,
-    lastMovement: 0
+    lastMovement: 0,
+    avgQuality: 0,
+    currentFPS: 0
   });
   const [regionMap, setRegionMap] = useState<RegionMap>(initRegionMap(200));
   const [coverageStats, setCoverageStats] = useState<CoverageStats>({
@@ -53,6 +61,16 @@ export const useContinuousStitching = (videoRef: React.RefObject<HTMLVideoElemen
     excellentRegions: 0,
     overallQuality: 0,
     avgCapturesPerRegion: 0
+  });
+
+  // NEW: Translation database for frame tracking
+  const [database] = useState(() => new TranslationDatabase(200));
+  const [currentQualityMetrics, setCurrentQualityMetrics] = useState<QualityMetrics | null>(null);
+  const [stitchingConfig, setStitchingConfig] = useState<Partial<StitchingConfig>>({
+    featureDetector: 'ORB',
+    nFeatures: 1500,
+    useQualityMetrics: true,
+    useAdaptiveFeatures: true
   });
 
   const panoramaStateRef = useRef<PanoramaState | null>(null);
@@ -97,7 +115,9 @@ export const useContinuousStitching = (videoRef: React.RefObject<HTMLVideoElemen
         lastMatchedFeatures: 0,
         isProcessing: false,
         overlapDetected: false,
-        lastMovement: 0
+        lastMovement: 0,
+        avgQuality: 100,
+        currentFPS: 1000 / captureIntervalMs
       });
 
       // Start continuous capture and stitching
@@ -115,13 +135,23 @@ export const useContinuousStitching = (videoRef: React.RefObject<HTMLVideoElemen
             return;
           }
 
-          const result = await stitchFrame(
+          // Use V2 stitching with professional features
+          const result = await stitchFrameV2(
             cv,
             panoramaStateRef.current,
             frame,
-            minConfidence,
-            nFeatures
+            {
+              ...stitchingConfig,
+              minConfidence,
+              nFeatures
+            },
+            database
           );
+
+          // Update quality metrics if available
+          if (result.qualityMetrics) {
+            setCurrentQualityMetrics(result.qualityMetrics);
+          }
 
           // Update region map if frame was successfully stitched
           let overlapDetected = false;
@@ -154,7 +184,10 @@ export const useContinuousStitching = (videoRef: React.RefObject<HTMLVideoElemen
             lastError: result.error,
             overlapDetected,
             lastMovement: result.translationDistance || 0,
-            lastFramePosition: result.framePosition
+            lastFramePosition: result.framePosition,
+            currentQualityMetrics: result.qualityMetrics,
+            avgQuality: result.qualityMetrics?.score || prev.avgQuality,
+            currentFPS: 1000 / captureIntervalMs
           }));
 
           if (result.success && result.panorama) {
@@ -214,8 +247,12 @@ export const useContinuousStitching = (videoRef: React.RefObject<HTMLVideoElemen
       lastMatchedFeatures: 0,
       isProcessing: false,
       overlapDetected: false,
-      lastMovement: 0
+      lastMovement: 0,
+      avgQuality: 0,
+      currentFPS: 0
     });
+    setCurrentQualityMetrics(null);
+    database.clear(); // Clear translation database
     setRegionMap(initRegionMap(200));
     setCoverageStats({
       totalRegions: 0,
@@ -226,7 +263,7 @@ export const useContinuousStitching = (videoRef: React.RefObject<HTMLVideoElemen
       overallQuality: 0,
       avgCapturesPerRegion: 0
     });
-  }, [stopStitching]);
+  }, [stopStitching, database]);
 
   return {
     isStitching,
@@ -238,7 +275,12 @@ export const useContinuousStitching = (videoRef: React.RefObject<HTMLVideoElemen
     startStitching,
     stopStitching,
     exportFinalPanorama,
-    reset
+    reset,
+    // NEW: Export V2 enhancements
+    database,
+    currentQualityMetrics,
+    stitchingConfig,
+    setStitchingConfig
   };
 };
 

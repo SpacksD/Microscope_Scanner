@@ -21,7 +21,7 @@ export interface SplitScreenStats {
 }
 
 export interface SplitScreenViewProps {
-  videoRef: React.RefObject<HTMLVideoElement>;
+  videoRef: React.RefObject<HTMLVideoElement | null>;
   panoramaDataUrl: string | null;
   stats: SplitScreenStats;
   showStats?: boolean;
