@@ -14,6 +14,9 @@ interface MinimapProps {
   coverageStats: CoverageStats;
   width?: number;
   height?: number;
+  // Note: enableZoom and enablePan are placeholders for future enhancements
+  enableZoom?: boolean;
+  enablePan?: boolean;
 }
 
 export const Minimap: React.FC<MinimapProps> = ({
