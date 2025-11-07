@@ -180,6 +180,13 @@
   background: #7c3aed;
 }
 
+.stitching-active-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 100%;
+}
+
 .stitching-content {
   display: grid;
   grid-template-columns: 1fr auto;
@@ -288,14 +295,21 @@
 .video-container {
   position: relative;
   width: 100%;
+  min-height: 400px;
   background: #000;
   border-radius: 8px;
   overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .video-feed {
   width: 100%;
   height: auto;
+  min-height: 400px;
+  max-height: 600px;
+  object-fit: contain;
   display: block;
 }
 

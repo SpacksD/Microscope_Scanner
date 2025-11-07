@@ -5,11 +5,12 @@
   grid-template-columns: 1fr 1fr;
   gap: 20px;
   width: 100%;
-  height: 100%;
-  min-height: 600px;
+  height: auto;
+  min-height: 700px;
   background: #1a1a1a;
   padding: 20px;
   border-radius: 12px;
+  margin-bottom: 20px;
 }
 
 /* Panels */
@@ -49,6 +50,7 @@
   align-items: center;
   justify-content: center;
   overflow: hidden;
+  min-height: 500px;
 }
 
 /* Status Badges */
@@ -123,6 +125,7 @@
 .camera-preview {
   width: 100%;
   height: 100%;
+  min-height: 450px;
   object-fit: contain;
 }
 

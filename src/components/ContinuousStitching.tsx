@@ -264,6 +264,10 @@ export const ContinuousStitching: React.FC<ContinuousStitchingProps> = ({
         )}
       </div>
 
+      {cameraError && (
+        <div className="error-message">{cameraError}</div>
+      )}
+
       {/* Export buttons - shown when panorama exists */}
       {panoramaDataUrl && stats.framesAccepted > 0 && (
         <div className="export-buttons">
@@ -276,125 +280,118 @@ export const ContinuousStitching: React.FC<ContinuousStitchingProps> = ({
         </div>
       )}
 
+      {/* Video feed - hidden when split screen is active */}
+      {!isStitching && (
+        <div className="video-container">
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            muted
+            className="video-feed"
+          />
+          <canvas ref={canvasRef} style={{ display: 'none' }} />
+        </div>
+      )}
+
       {/* Professional Split-Screen View when stitching */}
       {isStitching && (
-        <SplitScreenView
-          videoRef={videoRef}
-          panoramaDataUrl={panoramaDataUrl || ''}
-          stats={{
-            framesAccepted: stats.framesAccepted,
-            framesRejected: stats.framesProcessed - stats.framesAccepted,
-            isStitching: isStitching,
-            lastConfidence: stats.lastConfidence,
-            avgQuality: stats.avgQuality || 0,
-            coveragePercent:
-              coverageStats.totalRegions > 0
-                ? ((coverageStats.goodRegions + coverageStats.excellentRegions) /
-                    coverageStats.totalRegions) *
-                  100
-                : 0,
-            currentFPS: stats.currentFPS || 0,
-            lastError: stats.lastError
-          }}
-          showStats={true}
-          showCrosshair={true}
-        />
-      )}
-
-      {/* Quality Indicator - shown when quality metrics are available */}
-      {currentQualityMetrics && (
-        <div style={{ marginTop: '20px' }}>
-          <QualityIndicator
-            metrics={currentQualityMetrics}
-            showDetails={true}
-            compact={false}
+        <div className="stitching-active-container">
+          <SplitScreenView
+            videoRef={videoRef}
+            panoramaDataUrl={panoramaDataUrl || ''}
+            stats={{
+              framesAccepted: stats.framesAccepted,
+              framesRejected: stats.framesProcessed - stats.framesAccepted,
+              isStitching: isStitching,
+              lastConfidence: stats.lastConfidence,
+              avgQuality: stats.avgQuality || 0,
+              coveragePercent:
+                coverageStats.totalRegions > 0
+                  ? ((coverageStats.goodRegions + coverageStats.excellentRegions) /
+                      coverageStats.totalRegions) *
+                    100
+                  : 0,
+              currentFPS: stats.currentFPS || 0,
+              lastError: stats.lastError
+            }}
+            showStats={true}
+            showCrosshair={true}
           />
+
+          <canvas ref={canvasRef} style={{ display: 'none' }} />
+
+          {/* Quality Indicator - shown when quality metrics are available */}
+          {currentQualityMetrics && (
+            <div style={{ marginTop: '20px' }}>
+              <QualityIndicator
+                metrics={currentQualityMetrics}
+                showDetails={true}
+                compact={false}
+              />
+            </div>
+          )}
+
+          {/* Additional stats and minimap */}
+          <div className="stitching-content">
+            <div className="stitching-stats">
+              <div className="stat-item">
+                <span className="stat-label">Frames Processed:</span>
+                <span className="stat-value">{stats.framesProcessed}</span>
+              </div>
+              <div className="stat-item">
+                <span className="stat-label">Frames Accepted:</span>
+                <span className="stat-value success">
+                  {stats.framesAccepted} ({stats.framesProcessed > 0
+                    ? Math.round((stats.framesAccepted / stats.framesProcessed) * 100)
+                    : 0}%)
+                </span>
+              </div>
+              <div className="stat-item">
+                <span className="stat-label">Last Confidence:</span>
+                <span
+                  className="stat-value confidence"
+                  style={{ color: getConfidenceColor(stats.lastConfidence) }}
+                >
+                  {stats.lastConfidence.toFixed(1)}% ({getConfidenceLabel(stats.lastConfidence)})
+                </span>
+              </div>
+              <div className="stat-item">
+                <span className="stat-label">Features Matched:</span>
+                <span className="stat-value">{stats.lastMatchedFeatures}</span>
+              </div>
+              <div className="stat-item">
+                <span className="stat-label">Camera Movement:</span>
+                <span className="stat-value" style={{ color: stats.lastMovement < 30 ? '#ef4444' : '#10b981' }}>
+                  {stats.lastMovement.toFixed(1)}px
+                </span>
+              </div>
+              {stats.overlapDetected && (
+                <div className="overlap-indicator">
+                  <span className="overlap-badge">🔄 Overlap Detected</span>
+                  <span className="overlap-hint">Revisiting previously scanned area</span>
+                </div>
+              )}
+              {stats.isProcessing && (
+                <div className="processing-indicator">
+                  <div className="spinner"></div>
+                  <span>Processing frame...</span>
+                </div>
+              )}
+              {stats.lastError && (
+                <div className="error-hint">Last error: {stats.lastError}</div>
+              )}
+            </div>
+
+            <Minimap
+              regionMap={regionMap}
+              panoramaDataUrl={panoramaDataUrl}
+              currentFramePosition={stats.lastFramePosition}
+              coverageStats={coverageStats}
+            />
+          </div>
         </div>
       )}
-
-      {cameraError && (
-        <div className="error-message">{cameraError}</div>
-      )}
-
-      {isStitching && (
-        <div className="stitching-content">
-          <div className="stitching-stats">
-            <div className="stat-item">
-              <span className="stat-label">Frames Processed:</span>
-              <span className="stat-value">{stats.framesProcessed}</span>
-            </div>
-            <div className="stat-item">
-              <span className="stat-label">Frames Accepted:</span>
-              <span className="stat-value success">
-                {stats.framesAccepted} ({stats.framesProcessed > 0
-                  ? Math.round((stats.framesAccepted / stats.framesProcessed) * 100)
-                  : 0}%)
-              </span>
-            </div>
-            <div className="stat-item">
-              <span className="stat-label">Last Confidence:</span>
-              <span
-                className="stat-value confidence"
-                style={{ color: getConfidenceColor(stats.lastConfidence) }}
-              >
-                {stats.lastConfidence.toFixed(1)}% ({getConfidenceLabel(stats.lastConfidence)})
-              </span>
-            </div>
-            <div className="stat-item">
-              <span className="stat-label">Features Matched:</span>
-              <span className="stat-value">{stats.lastMatchedFeatures}</span>
-            </div>
-            <div className="stat-item">
-              <span className="stat-label">Camera Movement:</span>
-              <span className="stat-value" style={{ color: stats.lastMovement < 30 ? '#ef4444' : '#10b981' }}>
-                {stats.lastMovement.toFixed(1)}px
-              </span>
-            </div>
-            {stats.overlapDetected && (
-              <div className="overlap-indicator">
-                <span className="overlap-badge">🔄 Overlap Detected</span>
-                <span className="overlap-hint">Revisiting previously scanned area</span>
-              </div>
-            )}
-            {stats.isProcessing && (
-              <div className="processing-indicator">
-                <div className="spinner"></div>
-                <span>Processing frame...</span>
-              </div>
-            )}
-            {stats.lastError && (
-              <div className="error-hint">Last error: {stats.lastError}</div>
-            )}
-          </div>
-
-          <Minimap
-            regionMap={regionMap}
-            panoramaDataUrl={panoramaDataUrl}
-            currentFramePosition={stats.lastFramePosition}
-            coverageStats={coverageStats}
-          />
-        </div>
-      )}
-
-      <div className="video-container">
-        <video
-          ref={videoRef}
-          autoPlay
-          playsInline
-          muted
-          className="video-feed"
-        />
-        <canvas ref={canvasRef} style={{ display: 'none' }} />
-
-        {isStitching && (
-          <div className="overlay-indicators">
-            <div className="recording-badge">
-              <div className="recording-dot"></div>
-              <span>RECORDING PANORAMA</span>
-            </div>
-          </div>
-        )}
-      </div>
     </div>
   );
 };
