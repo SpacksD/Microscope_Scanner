@@ -280,7 +280,10 @@ export const ContinuousStitching: React.FC<ContinuousStitchingProps> = ({
         </div>
       )}
 
-      {/* Video feed - hidden when split screen is active */}
+      {/* Canvas for capturing (always hidden) */}
+      <canvas ref={canvasRef} style={{ display: 'none' }} />
+
+      {/* Video feed - standalone when not stitching */}
       {!isStitching && (
         <div className="video-container">
           <video
@@ -290,7 +293,6 @@ export const ContinuousStitching: React.FC<ContinuousStitchingProps> = ({
             muted
             className="video-feed"
           />
-          <canvas ref={canvasRef} style={{ display: 'none' }} />
         </div>
       )}
 
@@ -298,7 +300,7 @@ export const ContinuousStitching: React.FC<ContinuousStitchingProps> = ({
       {isStitching && (
         <div className="stitching-active-container">
           <SplitScreenView
-            videoRef={videoRef}
+            videoElement={videoRef}
             panoramaDataUrl={panoramaDataUrl || ''}
             stats={{
               framesAccepted: stats.framesAccepted,
@@ -318,8 +320,6 @@ export const ContinuousStitching: React.FC<ContinuousStitchingProps> = ({
             showStats={true}
             showCrosshair={true}
           />
-
-          <canvas ref={canvasRef} style={{ display: 'none' }} />
 
           {/* Quality Indicator - shown when quality metrics are available */}
           {currentQualityMetrics && (

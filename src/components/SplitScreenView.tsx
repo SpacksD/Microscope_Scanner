@@ -21,7 +21,7 @@ export interface SplitScreenStats {
 }
 
 export interface SplitScreenViewProps {
-  videoRef: React.RefObject<HTMLVideoElement | null>;
+  videoElement: React.RefObject<HTMLVideoElement | null>;
   panoramaDataUrl: string | null;
   stats: SplitScreenStats;
   showStats?: boolean;
@@ -29,13 +29,30 @@ export interface SplitScreenViewProps {
 }
 
 export const SplitScreenView: React.FC<SplitScreenViewProps> = ({
-  videoRef,
+  videoElement,
   panoramaDataUrl,
   stats,
   showStats = true,
   showCrosshair = true
 }) => {
   const panoramaCanvasRef = useRef<HTMLCanvasElement>(null);
+  const videoContainerRef = useRef<HTMLDivElement>(null);
+
+  // Move video element into the split screen view
+  useEffect(() => {
+    if (videoElement.current && videoContainerRef.current) {
+      // Move the video element into our container
+      videoContainerRef.current.appendChild(videoElement.current);
+      videoElement.current.className = 'camera-preview';
+    }
+
+    // Cleanup: return video to its original parent on unmount
+    return () => {
+      if (videoElement.current) {
+        videoElement.current.className = 'video-feed';
+      }
+    };
+  }, [videoElement]);
 
   // Update panorama canvas when dataUrl changes
   useEffect(() => {
@@ -73,14 +90,7 @@ export const SplitScreenView: React.FC<SplitScreenViewProps> = ({
           </div>
         </div>
 
-        <div className="panel-content camera-view">
-          <video
-            ref={videoRef}
-            autoPlay
-            playsInline
-            muted
-            className="camera-preview"
-          />
+        <div className="panel-content camera-view" ref={videoContainerRef}>
 
           {showCrosshair && (
             <div className="camera-overlay">
