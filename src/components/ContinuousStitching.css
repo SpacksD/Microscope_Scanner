@@ -1,8 +1,8 @@
 .continuous-stitching {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
-  padding: 1rem;
+  gap: 0.75rem;
+  padding: 0.75rem;
   background: #1a1a1a;
   border-radius: 8px;
 }
@@ -17,12 +17,12 @@
 
 .stitching-header h3 {
   margin: 0;
-  font-size: 1.1rem;
+  font-size: 1rem;
   color: #8b5cf6;
 }
 
 .loading-cv {
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   color: #f59e0b;
   animation: pulse 1.5s infinite;
 }
@@ -33,60 +33,79 @@
 }
 
 .camera-controls {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 0.75rem;
+  align-items: end;
+}
+
+@media (max-width: 1200px) {
+  .camera-controls {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .camera-controls {
+    grid-template-columns: 1fr;
+  }
 }
 
 .control-group {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.35rem;
 }
 
 .control-group label {
   font-weight: 500;
-  font-size: 0.9rem;
+  font-size: 0.8rem;
   color: #ccc;
+  white-space: nowrap;
 }
 
 .control-group select {
-  padding: 0.5rem;
+  padding: 0.4rem 0.5rem;
   border: 1px solid #444;
   background: #2a2a2a;
   color: white;
   border-radius: 4px;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
+}
+
+.control-group small {
+  display: none;
 }
 
 .slider-group {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 0.5rem;
 }
 
 .slider-group input[type="range"] {
   flex: 1;
-  height: 6px;
-  border-radius: 3px;
+  height: 4px;
+  border-radius: 2px;
   background: #2a2a2a;
   outline: none;
   -webkit-appearance: none;
+  min-width: 80px;
 }
 
 .slider-group input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
   background: #8b5cf6;
   cursor: pointer;
 }
 
 .slider-group input[type="range"]::-moz-range-thumb {
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
   background: #8b5cf6;
   cursor: pointer;
@@ -94,10 +113,11 @@
 }
 
 .slider-value {
-  min-width: 60px;
+  min-width: 50px;
   text-align: right;
   font-weight: 600;
   color: #8b5cf6;
+  font-size: 0.8rem;
 }
 
 .action-buttons {
@@ -108,11 +128,11 @@
 
 .action-buttons button {
   flex: 1;
-  min-width: 120px;
-  padding: 0.75rem 1rem;
+  min-width: 100px;
+  padding: 0.5rem 0.75rem;
   border: none;
   border-radius: 4px;
-  font-size: 0.95rem;
+  font-size: 0.85rem;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
@@ -148,15 +168,14 @@
 .export-buttons {
   display: flex;
   gap: 0.5rem;
-  margin-top: 0.5rem;
 }
 
 .export-buttons button {
   flex: 1;
-  padding: 0.75rem 1rem;
+  padding: 0.5rem 0.75rem;
   border: none;
   border-radius: 4px;
-  font-size: 0.95rem;
+  font-size: 0.85rem;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
